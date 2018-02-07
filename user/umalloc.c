@@ -11,7 +11,7 @@ typedef long Align;  // for alignment to long boundary
 union header {  // block header
   struct {
     union header *ptr; // next block, if on free list
-    uint size;         // size of this block
+    uint size;         // size of this block (in multiples of 8 bytes)
   } s;
   Align x;  // force alignment of blocks
 };
@@ -57,7 +57,7 @@ void free(void *ap) {
   // if there is a gap to the left, the left neighbor points to the new block
   else p->s.ptr = bp;
 
-  freep = p;  // change the start of the free list, for "next fit" policy
+  freep = p;  // change the start of the free list to point to the freed block
 }
 
 // minumum number of units to request
@@ -86,7 +86,8 @@ static Header* morecore(uint nu) {
 void* malloc(uint nbytes) {
   Header *p, *prevp;
 
-  // round up allocation size to fit memory alignment (long)
+  // Round up allocation size to fit header size (8 bytes).
+  // nunits is the size of the malloc, represented as a multiple of 8.
   uint nunits = (nbytes + sizeof(Header) - 1)/sizeof(Header) + 1;
   // if there is no free list yet, set up a list with one empty block
   if((prevp = freep) == 0){
@@ -112,6 +113,7 @@ void* malloc(uint nbytes) {
       }
       freep = prevp;  // change the start of the free list
                       // to implement the "next fit" policy
+                      // (and a newly split block will be considered next)
       return (void*)(p + 1);  // allocated chunk, past the header
     }
     // if we looped around to list start again, no blocks are big enough
