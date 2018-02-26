@@ -446,7 +446,8 @@ procdump(void)
 
 int clone(void(*fcn)(void*), void* arg, void* stack)
 {
-    if ((uint) stack % PGSIZE != 0)
+   /* 
+   if ((uint) stack % PGSIZE != 0)
       return -1; 
     int tid; 
     struct proc *thread, *p; 
@@ -480,7 +481,53 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
     tid = thread->pid;
     thread->state = RUNNABLE;
     safestrcpy(thread->name, proc->name, sizeof(proc->name));
-    return tid;    
+    return tid; 
+	*/
+	if ((uint) stack % PGSIZE != 0) return -1; // Prequirement 10
+
+  int i, tid;
+  struct proc *thread, *p;
+  
+  if ((thread = allocproc()) == 0) return -1; // Prequirement 08
+
+  *(thread->tf) = *(proc->tf);
+  thread->isThread = 1; // Prequirement 11
+  thread->pgdir = proc->pgdir; // Prequirement 02
+  thread->sz = proc->sz;
+  thread->ustack = (char*)stack;
+
+  // BEGIN: Prequirement 09
+  for (p = proc; p->isThread == 1; p = p->parent) ;
+  thread->parent = p;
+  // thread->parentlock = &(p->lock); // 1) clone: Requirement 12
+  // while (thread->parent->isThread == 1) thread->parent = thread->parent->parent;
+  // cprintf("thread->parent = %d\tproc = %d\n", thread->parent, proc);
+  // cprintf("thread->parent->isThread = %d\tproc->isThread = %d\n", thread->parent->isThread, proc->isThread);
+  // END: Prequirement 09
+  
+  // BEGIN: Prequirement 05
+  *((uint*)(stack + PGSIZE - 8)) = 0xffffffff; // Prequirement 07
+  *((void**)(stack + PGSIZE - 4)) = arg;
+  thread->tf->esp = (uint)stack;
+  if (copyout(proc->pgdir, thread->tf->esp, (void*)stack, (uint)PGSIZE) < 0) return -1;
+  thread->tf->esp = (uint)(stack + PGSIZE - 8);
+  // END: Prequirement 05
+  thread->tf->eip = (uint)fcn; // Prequirement 04
+  // thread->tf->ebp = arg;
+
+  thread->tf->eax = 0;
+
+  // BEGIN: Prequirement 03
+  for (i = 0; i < NOFILE; i++)
+    if (proc->ofile[i])
+      thread->ofile[i] = filedup(proc->ofile[i]);
+  thread->cwd = idup(proc->cwd);
+  // END: Prequirement 03
+  
+  tid = thread->pid;
+  thread->state = RUNNABLE;
+  safestrcpy(thread->name, proc->name, sizeof(proc->name));
+  return tid;   
 }
 
 int join(int pid)
