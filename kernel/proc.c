@@ -190,7 +190,7 @@ exit(void)
 
   // Pass abandoned children to init.
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->parent == proc){
+    if(p->parent == proc && proc->isThread == 0){
       p->parent = initproc;
       if(p->state == ZOMBIE)
         wakeup1(initproc);
