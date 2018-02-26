@@ -450,5 +450,57 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
 
 int join(int pid)
 {
-  return 0;
+  if (proc->pid == pid) return -1; //thread can't wait for itself to finish
+
+  struct proc *p; //the iterator for the processes
+  int havekids; //might not be needed
+
+  acquire(&ptable.lock);//accquires a lock so that join doesn't run into issues with race conditions
+  
+  for (;;) { //same as wait 
+    havekids = 0; //might not be needed
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) { //iterate through the table of processes, same as wait
+      if (p->pid == pid) { //found a process/thread that fits the pid we were looking for
+        //can't call join on any main threads, which are all processes
+        if (p->isThread == 0) {
+          // cprintf("p->isThread == 0\n");
+          release(&ptable.lock);
+          return -1;
+        }
+
+        // p is in a different family of threads than the thread that is waiting for it to finish
+        if (p->pgdir != proc->pgdir || (proc->isThread == 1 && p->parent != proc->parent)) {
+          // cprintf("p->pgdir != proc->pgdir\n");
+		  // cprintf("p->parent != proc->parent\n");
+          // cprintf("p->parent = %d\tproc->parent = %d\n", p->parent, proc->parent);
+          // cprintf("p->parent->isThread = %d\tproc->parent->isThread = %d\n", p->parent->isThread, proc->parent->isThread);
+          release(&ptable.lock);
+          return -1;          
+        }
+		
+        havekids = 1;//not sure if this is needed
+
+        if (p->state == ZOMBIE) { //p is a thread and has now finished, entering a zombie state
+          kfree(p->kstack);
+          p->kstack = 0;
+		  //freevm(p->pgdir); no need to free virtual memory because threads share it
+          p->state = UNUSED;
+          p->pid = 0;
+          p->parent = 0;
+          p->name[0] = 0;
+          p->killed = 0;
+          release(&ptable.lock);
+          return pid;
+        }      
+      }
+    }
+	
+	//not sure what this is for
+    if (!havekids || proc->killed) {
+      // cprintf("!havekids || proc->killed\n");
+      release(&ptable.lock);
+      return -1;         
+    }
+    sleep(proc, &ptable.lock);
+  }
 }
