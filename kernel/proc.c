@@ -455,7 +455,7 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
     *(thread->tf) = *(proc->tf); 
     thread->isThread = 1; 
     thread->pgdir = proc->pgdir; 
-    thread->sz = proc-sz;
+    thread->sz = proc->sz;
     thread->ustack = (char*)stack; 
     
     for(p = proc; p-> isThread == 1; p = p->parent);
