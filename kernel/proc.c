@@ -446,7 +446,6 @@ procdump(void)
 
 int clone(void(*fcn)(void*), void* arg, void* stack)
 {
-   /* 
    if ((uint) stack % PGSIZE != 0)
       return -1; 
     int tid; 
@@ -482,52 +481,6 @@ int clone(void(*fcn)(void*), void* arg, void* stack)
     thread->state = RUNNABLE;
     safestrcpy(thread->name, proc->name, sizeof(proc->name));
     return tid; 
-	*/
-	if ((uint) stack % PGSIZE != 0) return -1; // Prequirement 10
-
-  int i, tid;
-  struct proc *thread, *p;
-  
-  if ((thread = allocproc()) == 0) return -1; // Prequirement 08
-
-  *(thread->tf) = *(proc->tf);
-  thread->isThread = 1; // Prequirement 11
-  thread->pgdir = proc->pgdir; // Prequirement 02
-  thread->sz = proc->sz;
-  thread->ustack = (char*)stack;
-
-  // BEGIN: Prequirement 09
-  for (p = proc; p->isThread == 1; p = p->parent) ;
-  thread->parent = p;
-  // thread->parentlock = &(p->lock); // 1) clone: Requirement 12
-  // while (thread->parent->isThread == 1) thread->parent = thread->parent->parent;
-  // cprintf("thread->parent = %d\tproc = %d\n", thread->parent, proc);
-  // cprintf("thread->parent->isThread = %d\tproc->isThread = %d\n", thread->parent->isThread, proc->isThread);
-  // END: Prequirement 09
-  
-  // BEGIN: Prequirement 05
-  *((uint*)(stack + PGSIZE - 8)) = 0xffffffff; // Prequirement 07
-  *((void**)(stack + PGSIZE - 4)) = arg;
-  thread->tf->esp = (uint)stack;
-  if (copyout(proc->pgdir, thread->tf->esp, (void*)stack, (uint)PGSIZE) < 0) return -1;
-  thread->tf->esp = (uint)(stack + PGSIZE - 8);
-  // END: Prequirement 05
-  thread->tf->eip = (uint)fcn; // Prequirement 04
-  // thread->tf->ebp = arg;
-
-  thread->tf->eax = 0;
-
-  // BEGIN: Prequirement 03
-  for (i = 0; i < NOFILE; i++)
-    if (proc->ofile[i])
-      thread->ofile[i] = filedup(proc->ofile[i]);
-  thread->cwd = idup(proc->cwd);
-  // END: Prequirement 03
-  
-  tid = thread->pid;
-  thread->state = RUNNABLE;
-  safestrcpy(thread->name, proc->name, sizeof(proc->name));
-  return tid;   
 }
 
 int join(int pid)
@@ -545,17 +498,12 @@ int join(int pid)
       if (p->pid == pid) { //found a process/thread that fits the pid we were looking for
         //can't call join on any main threads, which are all processes
         if (p->isThread == 0) {
-          // cprintf("p->isThread == 0\n");
           release(&ptable.lock);
           return -1;
         }
 
         // p is in a different family of threads than the thread that is waiting for it to finish
         if (p->pgdir != proc->pgdir || (proc->isThread == 1 && p->parent != proc->parent)) {
-          // cprintf("p->pgdir != proc->pgdir\n");
-		  // cprintf("p->parent != proc->parent\n");
-          // cprintf("p->parent = %d\tproc->parent = %d\n", p->parent, proc->parent);
-          // cprintf("p->parent->isThread = %d\tproc->parent->isThread = %d\n", p->parent->isThread, proc->parent->isThread);
           release(&ptable.lock);
           return -1;          
         }
@@ -579,7 +527,6 @@ int join(int pid)
 	
 	//not sure what this is for
     if (!havekids || proc->killed) {
-      // cprintf("!havekids || proc->killed\n");
       release(&ptable.lock);
       return -1;         
     }

@@ -29,6 +29,8 @@ struct cpu {
 
 extern struct cpu cpus[NCPU];
 extern int ncpu;
+int clone(void(*fcn)(void*), void* arg, void* stack);
+int join(int pid);
 
 // Per-CPU variables, holding pointers to the
 // current cpu and to the current process.

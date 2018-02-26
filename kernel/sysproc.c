@@ -89,12 +89,25 @@ sys_uptime(void)
   return xticks;
 }
 
-int 
-sys_clone(void) {
-	return 0;
+int
+sys_clone(void)
+{ 
+  int ret;
+  void (*fcn)(void*);
+  void *arg;
+  void *stack;
+  if (argptr(0, (char**)&fcn, 4) < 0) return -1;
+  if (argptr(1, (char**)&arg, 4) < 0) return -1;
+  if (argptr(2, (char**)&stack, 2 * PGSIZE) < 0) return -1;
+  ret = clone(fcn, arg, stack);
+  return ret;
 }
 
-int 
-sys_join(void) {
-	return 0;
+int
+sys_join(void)
+{
+
+  int pid;
+  if (argint(0, &pid)) return -1;
+  return join(pid); 
 }
