@@ -3,8 +3,8 @@
 #include "param.h"
 #include "mmu.h"
 #include "x86.h"
-#include "proc.h"
 #include "spinlock.h"
+#include "proc.h"
 
 struct {
   struct spinlock lock;
@@ -18,6 +18,7 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+struct spinlock lgp;
 
 void
 pinit(void)
@@ -445,42 +446,7 @@ procdump(void)
 
 int clone(void(*fcn)(void*), void* arg, void* stack)
 {
-  if ((uint) stack % PGSIZE != 0)
-    return -1; 
-  int tid; 
-  struct proc *thread, *p; 
-  if ((thread = allocproc()) == 0)
-    return -1; 
-  *(thread->tf) = *(proc->tf); 
-  thread->isThread = 1; 
-  thread->pgdir = proc->pgdir; 
-  thread->sz = proc-sz;
-  thread->ustack = (char*)stack; 
-     
-  for(p = proc; p-> isThread == 1; p = p->parent);
-    thread->parent = p; 
-  
-   *((uint*)(stack + PGSIZE - 8)) = 0xffffffff;
-   *((void**)(stack + PGSIZE - 4)) = arg; 
-   thread -> tf -> esp = (uint)stack; 
-   if(copyout(proc->pgdir, thread->tf->esp, (void*)stack, (uint)PGSIZE) < 0)
-      return -1; 
-   thread->tf->esp = (uint)(stack + PGSIZE - 8);
-   thread->tf->eip = (uint)fcn;
-
-   thread->tf->eax = 0; 
-   int i; 
-   for(i = 0; i<NOFILE; i++)
-   {
-     if(proc->ofile[i])
-       thread->ofile[i] = filedup(proc->ofile[i]);
-   }
-   thread->cwd = idup(proc->cwd);
-   
-   tid = thread->pid;
-   thread->state = RUNNABLE;
-   safestrcpy(thread->name, proc->name, sizeof(proc->name));
-   return tid; 
+  return -1; 
 }
 
 int join(int pid)
