@@ -445,42 +445,46 @@ procdump(void)
 }
 
 int clone(void(*fcn)(void*), void* arg, void* stack)
-{
+{ 
+  // check if stack argument is page aligned, otherwise fail the clone 
    if ((uint) stack % PGSIZE != 0)
       return -1; 
     int tid; 
     struct proc *thread, *p; 
+    // each thread must have a unique id 
     if ((thread = allocproc()) == 0)
         return -1; 
     *(thread->tf) = *(proc->tf); 
-    thread->isThread = 1; 
-    thread->pgdir = proc->pgdir; 
+    thread->isThread = 1;  // indicate whether this is a child thread or not
+    thread->pgdir = proc->pgdir;  // new thread of execution must have the same address space as the parent
     thread->sz = proc->sz;
     thread->ustack = (char*)stack; 
     
+    // parent field of thread's struct proc will point to parent thread 
     for(p = proc; p-> isThread == 1; p = p->parent);
-     thread->parent = p; 
+      thread->parent = p; 
   
+     // new thread must use the page pointed to by stack as its user stack
     *((uint*)(stack + PGSIZE - 8)) = 0xffffffff;
     *((void**)(stack + PGSIZE - 4)) = arg; 
     thread -> tf -> esp = (uint)stack; 
     if(copyout(proc->pgdir, thread->tf->esp, (void*)stack, (uint)PGSIZE) < 0)
          return -1; 
     thread->tf->esp = (uint)(stack + PGSIZE - 8);
-    thread->tf->eip = (uint)fcn;
+    thread->tf->eip = (uint)fcn; // new thread must begin execution in the function pointed to by fcn located in the eip register
     thread->tf->eax = 0; 
     int i; 
+    // new thread must get a copy of the file's descriptors
     for(i = 0; i<NOFILE; i++)
      {
          if(proc->ofile[i])
              thread->ofile[i] = filedup(proc->ofile[i]);
       }
     thread->cwd = idup(proc->cwd);
-   
     tid = thread->pid;
-    thread->state = RUNNABLE;
+    thread->state = RUNNABLE; // new thread can automatically be run
     safestrcpy(thread->name, proc->name, sizeof(proc->name));
-    return tid; 
+    return tid; // return new process id
 }
 
 int join(int pid)
@@ -488,12 +492,12 @@ int join(int pid)
   if (proc->pid == pid) return -1; //thread can't wait for itself to finish
 
   struct proc *p; //the iterator for the processes
-  int havekids; //might not be needed
+  int havekids; 
 
   acquire(&ptable.lock);//accquires a lock so that join doesn't run into issues with race conditions
   
   for (;;) { //same as wait 
-    havekids = 0; //might not be needed
+    havekids = 0; 
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) { //iterate through the table of processes, same as wait
       if (p->pid == pid) { //found a process/thread that fits the pid we were looking for
         //can't call join on any main threads, which are all processes
@@ -508,7 +512,7 @@ int join(int pid)
           return -1;          
         }
 		
-        havekids = 1;//not sure if this is needed
+        havekids = 1;
 
         if (p->state == ZOMBIE) { //p is a thread and has now finished, entering a zombie state
           kfree(p->kstack);
@@ -525,7 +529,6 @@ int join(int pid)
       }
     }
 	
-	//not sure what this is for
     if (!havekids || proc->killed) {
       release(&ptable.lock);
       return -1;         
