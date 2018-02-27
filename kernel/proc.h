@@ -31,7 +31,8 @@ extern struct cpu cpus[NCPU];
 extern int ncpu;
 int clone(void(*fcn)(void*), void* arg, void* stack);
 int join(int pid);
-
+void cv_wait(cond_t* conditionVariable, lock_t* lock);
+void cv_signal(cond_t* conditionVariable);
 // Per-CPU variables, holding pointers to the
 // current cpu and to the current process.
 // The asm suffix tells gcc to use "%gs:0" to refer to cpu
